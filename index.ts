@@ -1,28 +1,79 @@
-type Initializer<T> = (
-  resolve: () => void,
-  reject: (reason?: any) => void
-) => void;
+type Initializer<T> = (resolve: Resolve, reject: Reject) => void;
 
-class MyPromise {
-  constructor(initializer) {}
+type Resolve = (value: any) => void;
+type Reject = (reason?: any) => void;
 
-  then = () => {};
+type ThenCb<T> = (value: T) => any;
+type CatchCb = (reason?: any) => any;
 
-  catch = () => {};
+type AllSettledResult<T> =
+  | {
+      status: "fulfilled";
+      value: T;
+    }
+  | {
+      status: "rejected";
+      reason: any;
+    };
 
-  private resolver = () => {};
+type Status = "fulfilled" | "rejected" | "pending";
 
-  private reject = () => {};
+class MyPromise<T> {
+  thenCbs: [ThenCb<T> | undefined, CatchCb | undefined, Resolve, Reject][] = [];
+  status: Status = "pending";
+  value: T | null = null;
+  error?: any;
+
+  constructor(initializer: Initializer<T>) {
+    initializer(this.resolve, this.reject);
+  }
+
+  then = <U>(thenCb: (value: T) => U, catchCb?: (reason?: any) => void) => {
+    const promise = new MyPromise<U>((resolve, reject) => {
+      this.thenCbs.push([thenCb, catchCb, resolve, reject]);
+    });
+
+    return promise;
+  };
+
+  catch = <U>(catchCb: (reason?: any) => void) => {
+    const promise = new MyPromise<U>((resolve, reject) => {
+      this.thenCbs.push([undefined, catchCb, resolve, reject]);
+    });
+
+    return promise;
+  };
+
+  private resolve = (value: T) => {
+    this.thenCbs.forEach((cb) => cb(value));
+  };
+
+  private reject = (reason?: any) => {
+    this.thenCbs.forEach((cb) => cb(reason));
+  };
 }
 
-const promise = new Promise((resolve, reject) => {
+// ===========================================================================
+const sleep = (ms: number) => {
+  return new Promise<void>((resolve, reject) => {
+    setTimeout(() => {
+      resolve();
+    }, ms);
+  });
+};
+
+const promise = new Promise<number>((resolve) => {
   setTimeout(() => {
-    resolve("asdf");
-  }, 500);
+    resolve(5);
+  }, 1);
 })
   .then((value) => {
-    console.log(value);
+    console.log("value: ", value);
+    return sleep(5000);
+  })
+  .then((value) => {
+    console.log("=========================");
   })
   .catch((error) => {
-    console.error(error);
+    console.error("error", error);
   });
