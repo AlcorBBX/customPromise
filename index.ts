@@ -1,3 +1,5 @@
+import { asap, isPromiseLike } from "./utils";
+
 type Initializer<T> = (resolve: Resolve, reject: Reject) => void;
 
 type Resolve = (value: any) => void;
@@ -32,18 +34,25 @@ class MyPromise<T> {
     }
   }
 
-  then = <U>(thenCb: (value: T) => U, catchCb?: (reason?: any) => void) => {
+  then = <U>(
+    thenCb?: (value: T) => U | PromiseLike<U>,
+    catchCb?: (reason?: any) => void
+  ) => {
     const promise = new MyPromise<U>((resolve, reject) => {
       this.thenCbs.push([thenCb, catchCb, resolve, reject]);
     });
 
+    this.processNextTasks();
+
     return promise;
   };
 
-  catch = <U>(catchCb: (reason?: any) => void) => {
+  catch = <U>(catchCb?: (reason?: any) => U) => {
     const promise = new MyPromise<U>((resolve, reject) => {
       this.thenCbs.push([undefined, catchCb, resolve, reject]);
     });
+
+    this.processNextTasks();
 
     return promise;
   };
@@ -60,11 +69,51 @@ class MyPromise<T> {
     });
   }
 
-  private resolve = (value: T | PromiseLike<T>) => {};
+  private resolve = (value: T | PromiseLike<T>) => {
+    if (isPromiseLike(value)) {
+      value.then(this.resolve, this.reject);
+    } else {
+      this.status = "fulfilled";
+      this.value = value;
+
+      this.processNextTasks();
+    }
+  };
 
   private reject = (reason?: any) => {
     this.status = "rejected";
     this.error = reason;
+
+    this.processNextTasks();
+  };
+
+  private processNextTasks = () => {
+    asap(() => {
+      if (this.status === "pending") {
+        return;
+      }
+
+      const thenCbs = this.thenCbs;
+      this.thenCbs = [];
+
+      thenCbs.forEach(([thenCb, catchCb, resolve, reject]) => {
+        try {
+          if (this.status === "fulfilled") {
+            const value = thenCb ? thenCb(this.value) : this.value;
+            resolve(value);
+          } else {
+            if (catchCb) {
+              const value = catchCb(this.error);
+              resolve(value);
+            } else {
+              reject(this.error);
+            }
+          }
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
   };
 }
 

@@ -1,14 +1,17 @@
 {
   "name": "custom-promise",
+  "author": "alcorbbx",
+  "license": "MIT",
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
+    "build": "tsc",
+    "build:start": "tsc && node ./dist/index.js",
+    "start": "node ./dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "repository": "https://github.com/AlcorBBX",
-  "author": "alcorbbx",
-  "license": "MIT",
+  "repository": "https://github.com/AlcorBBX/customPromise",
   "private": true,
   "devDependencies": {
     "@types/node": "^18.14.2",
