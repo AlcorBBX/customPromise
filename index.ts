@@ -25,7 +25,11 @@ class MyPromise<T> {
   error?: any;
 
   constructor(initializer: Initializer<T>) {
-    initializer(this.resolve, this.reject);
+    try {
+      initializer(this.resolve, this.reject);
+    } catch (error) {
+      this.reject(error);
+    }
   }
 
   then = <U>(thenCb: (value: T) => U, catchCb?: (reason?: any) => void) => {
@@ -44,12 +48,23 @@ class MyPromise<T> {
     return promise;
   };
 
-  private resolve = (value: T) => {
-    this.thenCbs.forEach((cb) => cb(value));
-  };
+  static resolve<U>(value: U | PromiseLike<U>) {
+    return new MyPromise<U>((resolve) => {
+      resolve(value);
+    });
+  }
+
+  static reject(reason?: any) {
+    return new MyPromise((_, reject) => {
+      reject(reason);
+    });
+  }
+
+  private resolve = (value: T | PromiseLike<T>) => {};
 
   private reject = (reason?: any) => {
-    this.thenCbs.forEach((cb) => cb(reason));
+    this.status = "rejected";
+    this.error = reason;
   };
 }
 
